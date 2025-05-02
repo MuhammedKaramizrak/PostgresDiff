@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "dgSpecHash": "D6Ux8+n6/Z5X8K0FuCAneMRlW/GjEn2fpSB4VcAiYyFY48AxpRNE+g/Cad4YtmdmpqNuw81mMatmvgnFNqSkBQ==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\muhammed\\source\\repos\\PostgresDiff\\PostgresDiff\\PostgresDiff.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\muhammed\\.nuget\\packages\\diffplex\\1.7.2\\diffplex.1.7.2.nupkg.sha512",
+    "C:\\Users\\muhammed\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\8.0.2\\microsoft.extensions.dependencyinjection.abstractions.8.0.2.nupkg.sha512",
+    "C:\\Users\\muhammed\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\8.0.2\\microsoft.extensions.logging.abstractions.8.0.2.nupkg.sha512",
+    "C:\\Users\\muhammed\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512",
+    "C:\\Users\\muhammed\\.nuget\\packages\\npgsql\\9.0.3\\npgsql.9.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}

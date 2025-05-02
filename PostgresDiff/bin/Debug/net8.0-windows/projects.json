@@ -1,0 +1,56 @@
+[
+  {
+    "ProjectName": "GERCEK",
+    "Layers": [
+      {
+        "LayerName": "Layer 1",
+        "Connections": [
+          {
+            "Host": "192.168.40.140",
+            "Port": "5432",
+            "Database": "veboni-0046654f-544b-4092-8eae-af488031cb9b",
+            "Username": "postgres",
+            "Password": "Xidok4096H",
+            "IsConnected": false,
+            "Name": "PMSMASTER",
+            "Inactive": false,
+            "ConnectionString": "Host=192.168.40.140;Port=5432;Database=veboni-0046654f-544b-4092-8eae-af488031cb9b;Username=postgres;Password=Xidok4096H;Timeout=5;"
+          },
+{
+            "Host": "192.168.40.3",
+            "Port": "5432",
+            "Database": "veboni-kodfinancev2",
+            "Username": "postgres",
+            "Password": "112446Kk$#!!",
+            "IsConnected": false,
+            "Name": "BACKMASTER",
+            "Inactive": false,
+            "ConnectionString": "Host=192.168.40.3;Port=5432;Database=veboni-kodfinancev2;Username=postgres;Password=112446Kk$#!!;Timeout=5;"
+          }
+
+        ]
+      },
+      
+      {
+        "LayerName": "Client Layer",
+        "Connections": [
+          {
+            "Host": "192.168.40.85",
+            "Port": "5431",
+            "Database": "syskod_test",
+            "Username": "postgres",
+            "Password": "112446Kk!!",
+            "IsConnected": false,
+            "Name": "CLIENT",
+            "Inactive": false,
+            "ConnectionString": "Host=192.168.40.85;Port=5431;Database=syskod_test;Username=postgres;Password=112446Kk!!;Timeout=5;"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "ProjectName": "DENEME",
+    "Layers": []
+  }
+]

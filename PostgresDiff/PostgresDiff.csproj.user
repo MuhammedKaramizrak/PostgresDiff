@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Compile Update="AddConnectionForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="MainScreen.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="DdlComparatorControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="DiffViewer.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="CompareForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="MultiDiffViewer.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="ProjectLayerControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="ProjectListView .cs">
+      <SubType>Component</SubType>
+    </Compile>
+  </ItemGroup>
+</Project>
