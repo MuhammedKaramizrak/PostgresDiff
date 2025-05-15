@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.CompilerServices;
+using System.Security.Policy;
 using System.Windows.Forms;
 using Npgsql;
 using PostgresDiff;
@@ -17,7 +18,8 @@ namespace PostgresDiff
         public bool IsConnected { get; set; }
         public string Name { get; set; }
         public bool Inactive { get; set; }
-
+        public string LogFilePath { get; set; }
+        public bool IsDefault { get; set; } = false;
         public string ConnectionString => $"Host={Host};Port={Port};Database={Database};Username={Username};Password={Password};Timeout=5;";
 
         public override string ToString()
@@ -46,9 +48,98 @@ namespace PostgresDiff
         public ConnectionListView()
         {
             InitializeComponent();
+            var contextMenu = new ContextMenuStrip();
+            contextMenu.Items.Add("Add Connection", null, OnAddConnection);
+            contextMenu.Items.Add("Edit Connection", null, OnEditConnection);
+            contextMenu.Items.Add("Delete Connection", null, OnDeleteConnection);
+            contextMenu.Items.Add("Set as Default", null, OnSetAsDefault);
+            this.ContextMenuStrip = contextMenu;
+        }
+        private void OnSetAsDefault(object sender, EventArgs e)
+        {
+            var selected = GetSelectedConnections().FirstOrDefault();
+            if (selected == null)
+            {
+                MessageBox.Show("Please select a connection to mark as default.", "Default Connection", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            foreach (var conn in Connections)
+                conn.IsDefault = false;
+
+            selected.IsDefault = true;
+            RefreshList();
         }
 
-        public ConnectionListView(string masorclient) : this()
+        private void OnDeleteConnection(object sender, EventArgs e)
+        {
+            var selected = GetSelectedConnections().FirstOrDefault();
+            if (selected == null)
+            {
+                MessageBox.Show("Please select a connection to delete.", "Delete Connection", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var result = MessageBox.Show($"Are you sure you want to delete connection \"{selected.Name}\"?", "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (result == DialogResult.Yes)
+            {
+                Connections.Remove(selected);
+                RefreshList();
+            }
+        }
+
+        private void OnAddConnection(object sender, EventArgs e)
+        {
+            var form = new AddConnectionForm(this);
+            if (form.ShowDialog() == DialogResult.OK)
+            {
+                // AddConnectionForm zaten AddConnection(this) çağırıyor
+                this.RefreshList(); // Eğer gerekirse listeyi güncelle
+            }
+        }
+
+        private void OnEditConnection(object sender, EventArgs e)
+        {
+            var selected = GetSelectedConnections().FirstOrDefault();
+            if (selected == null)
+            {
+                MessageBox.Show("Please select a connection to edit.", "Edit Connection", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var form = new AddConnectionForm(this, selected);
+            if (form.ShowDialog() == DialogResult.OK)
+            {
+                // Seçilen bağlantı zaten güncellendi
+                this.RefreshList(); // Yeniden çiz
+            }
+        }
+      
+        public void RefreshList()
+        {
+            this.Items.Clear();
+            foreach (var conn in Connections)
+            {
+                var displayName = conn.IsDefault ? $"★ {conn.Name}" : conn.Name;
+                var item = new ListViewItem(displayName)
+                {
+                    ImageKey = conn.IsConnected ? "connected" : "disconnected"
+                };
+                item.Font = conn.IsDefault
+    ? new Font(this.Font, FontStyle.Bold)
+    : this.Font;
+
+                if (conn.Inactive)
+                    item.ForeColor = Color.Gray;
+
+                this.Items.Add(item);
+            }
+            Application.DoEvents();
+        }
+
+
+
+        public ConnectionListView(string layername) : this()
         {
             // İlgili bağlantı bilgileri masorclient üzerinden alınabilir
             // Henüz bir işlem tanımlı değil
@@ -62,13 +153,14 @@ namespace PostgresDiff
             }
         }
 
-        public ConnectionListView(List<ConnectionItem> connectionList) : this()
+        public async Task  AddConnection(List<ConnectionItem> connectionList)
         {
             if (connectionList != null)
             {
                 foreach (var conn in connectionList)
                     AddConnection(conn);
             }
+            Application.DoEvents();
         }
 
         private void InitializeComponent()
@@ -79,12 +171,12 @@ namespace PostgresDiff
             CheckBoxes = false;
             MultiSelect = false;
 
-            Columns.Add("Name", 100);
-            Columns.Add("Host", 100);
-            Columns.Add("Port", 50);
-            Columns.Add("Database", 100);
-            Columns.Add("Username", 100);
-            Columns.Add("Password", 100);
+            Columns.Add("Connections", 200);
+            SmallImageList = new ImageList();
+            SmallImageList.ImageSize = new Size(16, 16); // Gerekirse büyüt
+            SmallImageList.Images.Add("connected", Properties.Resources.connected);    // eklemen gerekir
+            SmallImageList.Images.Add("disconnected", Properties.Resources.disconnected);
+
         }
 
         public void AddConnection(string name, string host, string  port, string database, string username, string password, bool inactive = false)
@@ -104,26 +196,12 @@ namespace PostgresDiff
             {
                 this.Invoke((MethodInvoker)(() =>
                 {
-                    this.Items.Clear();
-                    Connections.Clear();
-
-                    foreach (var conn in connections)
-                    {
-                        Connections.Add(conn);
-                        this.Items.Add(new ListViewItem(conn.ToString()) { ImageKey = conn.IsConnected ? "connected" : "disconnected" });
-                    }
+                    RefreshList();
                 }));
             }
             else
             {
-                this.Items.Clear();
-                Connections.Clear();
-
-                foreach (var conn in connections)
-                {
-                    Connections.Add(conn);
-                    this.Items.Add(new ListViewItem(conn.ToString()) { ImageKey = conn.IsConnected ? "connected" : "disconnected" });
-                }
+                RefreshList();
             }
         }
 
@@ -134,17 +212,19 @@ namespace PostgresDiff
 
             Connections.Add(conn);
 
-            var item = new ListViewItem(conn.Name);
-            item.SubItems.Add(conn.Host);
-            item.SubItems.Add(conn.Port.ToString());
-            item.SubItems.Add(conn.Database);
-            item.SubItems.Add(conn.Username);
-            item.SubItems.Add(conn.Password);
+            var displayName = conn.IsDefault ? $"★ {conn.Name}" : conn.Name;
+            var item = new ListViewItem(displayName)
+            {
+                ImageKey = conn.IsConnected ? "connected" : "disconnected"
+            };
+            item.Font = conn.IsDefault
+? new Font(this.Font, FontStyle.Bold)
+: this.Font;
 
             if (conn.Inactive)
-                item.ForeColor = System.Drawing.Color.Gray;
+                item.ForeColor = Color.Gray;
 
-            Items.Add(item);
+            this.Items.Add(item);
         }
 
         public List<ConnectionItem> GetSelectedConnections()

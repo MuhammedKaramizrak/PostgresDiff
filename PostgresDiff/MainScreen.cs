@@ -8,7 +8,7 @@ namespace PostgresDiff
     public class MainScreen : Form
     {
         private ListBox listBoxProjects;
-        private FlowLayoutPanel flowLayoutPanel1;
+   
         private List<ProjectData> _allProjects;
 
         private Button btnAddProject;
@@ -23,6 +23,51 @@ namespace PostgresDiff
             InitializeDynamicControls();
 
             Load += MainScreen_Load;
+            FormClosed += MainScreen_FormClosed;
+        }
+
+        private void MainScreen_FormClosed(object? sender, FormClosedEventArgs e)
+        {
+            SaveAllSelectedDatabases();
+            ProjectDataHelper.SaveAllProjectDatas(_allProjects);
+        }
+        private void SaveAllSelectedDatabases()
+        {
+            foreach (var project in _allProjects)
+            {
+                foreach (var layer in project.Layers)
+                {
+                    foreach (Control c in splitContainer.Panel2.Controls)
+                    {
+                        FindAndUpdateComparatorRecursive(c, layer);
+                    }
+                }
+            }
+        }
+        private void FindAndUpdateComparatorRecursive(Control parent, LayerData layer)
+        {
+            foreach (Control child in parent.Controls)
+            {
+                if (child is DdlComparatorControl comparator)
+                {
+                    comparator.UpdateSelectedDatabaseInProject(layer);
+                }
+                else
+                {
+                    FindAndUpdateComparatorRecursive(child, layer);
+                }
+            }
+        }
+        private IEnumerable<Control> GetAllControlsRecursive(Control control)
+        {
+            foreach (Control child in control.Controls)
+            {
+                yield return child;
+                foreach (var grandChild in GetAllControlsRecursive(child))
+                {
+                    yield return grandChild;
+                }
+            }
         }
         private SplitContainer splitContainer;
 
@@ -76,25 +121,18 @@ namespace PostgresDiff
             btnRenameProject.Click += btnRenameProject_Click;
 
             // FlowLayoutPanel for Project Layers
-            flowLayoutPanel1 = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                AutoScroll = true,
-                WrapContents = false,
-                FlowDirection = FlowDirection.LeftToRight, // << BURAYA DİKKAT!!!
-                BackColor = Color.WhiteSmoke,
-                Padding = new Padding(10)
-            };
+            
 
             // Add controls to SplitContainer
             splitContainer.Panel1.Controls.Add(listBoxProjects);
             splitContainer.Panel1.Controls.Add(btnRenameProject);
             splitContainer.Panel1.Controls.Add(btnDeleteProject);
             splitContainer.Panel1.Controls.Add(btnAddProject);
-            splitContainer.Panel2.Controls.Add(flowLayoutPanel1);
+           
 
             // Add SplitContainer to Form
             Controls.Add(splitContainer);
+            
         }
 
         private void MainScreen_Load(object sender, EventArgs e)
@@ -118,71 +156,196 @@ namespace PostgresDiff
                 listBoxProjects.Items.Add(project.ProjectName);
             }
         }
-
-        private void listBoxProjects_SelectedIndexChanged(object sender, EventArgs e)
+        
+        ContextMenuStrip layerMenu;
+        private async void  listBoxProjects_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (listBoxProjects.SelectedIndex >= 0)
             {
-                flowLayoutPanel1.Controls.Clear();
+               
 
                 var selectedProject = _allProjects[listBoxProjects.SelectedIndex];
-                LoadProject(selectedProject);
+               await LoadProject(selectedProject);
+                 layerMenu = new ContextMenuStrip();
+                layerMenu.Items.Add("Add Layer", null, (s, e) => AddLayer());
+                layerMenu.Items.Add("Delete Last Layer", null, (s, e) => DeleteLayer());
+                splitContainer.Panel2.ContextMenuStrip = layerMenu;
+            }
+        }
+        private async void AddLayer()
+        {
+            if (listBoxProjects.SelectedIndex < 0) return;
+
+            var selectedProject = _allProjects[listBoxProjects.SelectedIndex];
+            string defaultName = $"Layer{selectedProject.Layers.Count + 1}";
+            string layerName = Microsoft.VisualBasic.Interaction.InputBox("Enter Layer Name", "Add Layer", defaultName);
+
+            if (string.IsNullOrWhiteSpace(layerName))
+            {
+                MessageBox.Show("Layer name cannot be empty.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            var newLayer = new LayerData(layerName);
+
+            selectedProject.Layers.Add(newLayer);
+            ProjectDataHelper.SaveAllProjectDatas(_allProjects);
+            await LoadProject(selectedProject);
+        }
+
+        private async void DeleteLayer()
+        {
+            if (listBoxProjects.SelectedIndex < 0) return;
+
+            var selectedProject = _allProjects[listBoxProjects.SelectedIndex];
+
+            if (selectedProject.Layers.Count == 0)
+            {
+                MessageBox.Show("No layers to delete.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var lastLayer = selectedProject.Layers.Last();
+            var confirm = MessageBox.Show(
+                $"Are you sure you want to delete the last layer: \"{lastLayer.LayerName}\"?",
+                "Delete Layer",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning
+            );
+
+            if (confirm == DialogResult.Yes)
+            {
+                selectedProject.Layers.RemoveAt(selectedProject.Layers.Count - 1);
+                ProjectDataHelper.SaveAllProjectDatas(_allProjects);
+                await LoadProject(selectedProject);
             }
         }
 
-        private void LoadProject(ProjectData projectData)
+
+
+
+        private async Task LoadProject(ProjectData projectData)
         {
+            splitContainer.Panel2.Controls.Clear();
+            SplitContainer? previousSplit = null;
+
             foreach (var layer in projectData.Layers)
             {
-                // Katman için yatay bir panel (layerPanel) oluştur
-                var layerPanel = new TableLayoutPanel
+                bool isLastLayer = layer == projectData.Layers.Last();
+
+                // Layer adı Label'ı
+                var lblLayerName = new Label
                 {
-                    ColumnCount = layer.Connections.Count + 1, // Tüm bağlantılar + 1 adet DdlComparatorControl
-                    RowCount = 1,
-                    AutoSize = true,
-                    AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                    Margin = new Padding(10),
-                    Dock = DockStyle.Top
+                    Text = layer.LayerName,
+                    Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                    Dock = DockStyle.Fill,
+                    Height = 30,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    BackColor = Color.LightSteelBlue,
+                    Cursor = Cursors.Hand
                 };
 
-                layerPanel.ColumnStyles.Clear();
-                for (int i = 0; i < layer.Connections.Count; i++)
+                lblLayerName.MouseUp += (s, e) =>
                 {
-                    layerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-                }
-                layerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f)); // Comparator genişletilebilir
-
-                // ConnectionListView kontrollerini ekle
-                foreach (var conn in layer.Connections)
-                {
-                    var connView = new ConnectionListView(conn)
+                    if (e.Button == MouseButtons.Left)
                     {
-                        Dock = DockStyle.Fill,
-                        Margin = new Padding(5)
-                    };
-                    layerPanel.Controls.Add(connView);
-                }
+                        string newName = Microsoft.VisualBasic.Interaction.InputBox("Rename Layer", "Rename", layer.LayerName);
+                        if (!string.IsNullOrWhiteSpace(newName))
+                        {
+                            layer.LayerName = newName;
+                            lblLayerName.Text = newName;
+                            ProjectDataHelper.SaveAllProjectDatas(_allProjects);
+                        }
+                    }
+                    else if (e.Button == MouseButtons.Right && layerMenu != null)
+                    {
+                        layerMenu.Show(lblLayerName, e.Location);
+                    }
+                };
 
-                // DdlComparatorControl ekle
+                // İçerik Paneli (Label + Conn + Comparator)
+                var layerPanel = new TableLayoutPanel
+                {
+                    ColumnCount = 2,
+                    RowCount = 2,
+                    Dock = DockStyle.Fill,
+                    BorderStyle = BorderStyle.FixedSingle,
+                    AutoSize = false,
+                    AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                    Margin = new Padding(10)
+                };
+
+                layerPanel.RowStyles.Clear();
+                layerPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));  // Label
+                layerPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); // Content
+                layerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+                layerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+                layerPanel.Controls.Add(lblLayerName, 0, 0);
+                layerPanel.SetColumnSpan(lblLayerName, 2);
+
+                // ConnectionListView
+                var connView = new ConnectionListView(layer.LayerName)
+                {
+                    Dock = DockStyle.Fill,
+                    MinimumSize = new Size(0, 100)
+                };
+                await connView.AddConnection(layer.Connections);
+                layerPanel.Controls.Add(connView, 0, 1);
+
+                // DdlComparatorControl
                 var comparator = new DdlComparatorControl
                 {
                     Dock = DockStyle.Fill,
                     Margin = new Padding(5)
                 };
-                comparator.SetConnectionListView(layer.Connections); // varsa bağlantıları yükle
+                await comparator.SetConnectionListView(layer.Connections);
+                layerPanel.Controls.Add(comparator, 1, 1);
+                connView.RefreshList();
 
-                layerPanel.Controls.Add(comparator);
-
-                // flowLayoutPanel1 içine ekle
-                flowLayoutPanel1.Controls.Add(layerPanel);
-
-                // Sağ tıklama menüsü (aynen korunuyor)
-                var contextMenu = new ContextMenuStrip();
-                contextMenu.Items.Add("Edit Layer", null, (s, e) => EditLayer(layer));
-                contextMenu.Items.Add("Add New Connection", null, (s, e) => AddNewConnection(layer));
-                layerPanel.ContextMenuStrip = contextMenu;
+                // Eğer son layer ise yeni SplitContainer oluşturma
+                if (previousSplit == null)
+                {
+                    if (isLastLayer)
+                        splitContainer.Panel2.Controls.Add(layerPanel);
+                    else
+                    {
+                        var newSplit = new SplitContainer
+                        {
+                            Orientation = Orientation.Vertical,
+                            Dock = DockStyle.Fill,
+                            BorderStyle = BorderStyle.FixedSingle,
+                            IsSplitterFixed = false
+                        };
+                        newSplit.Panel1.Controls.Add(layerPanel);
+                        splitContainer.Panel2.Controls.Add(newSplit);
+                        previousSplit = newSplit;
+                    }
+                }
+                else
+                {
+                    if (isLastLayer)
+                    {
+                        previousSplit.Panel2.Controls.Add(layerPanel);
+                    }
+                    else
+                    {
+                        var newSplit = new SplitContainer
+                        {
+                            Orientation = Orientation.Vertical,
+                            Dock = DockStyle.Fill,
+                            BorderStyle = BorderStyle.FixedSingle,
+                            IsSplitterFixed = false
+                        };
+                        newSplit.Panel1.Controls.Add(layerPanel);
+                        previousSplit.Panel2.Controls.Add(newSplit);
+                        previousSplit = newSplit;
+                    }
+                }
             }
         }
+
+
 
 
         // Add Project
@@ -268,18 +431,7 @@ namespace PostgresDiff
             }
         }
 
-        // Edit Layer
-        private void EditLayer(LayerData layer)
-        {
-            MessageBox.Show($"Editing Layer: {layer.LayerName}", "Edit", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            // Add your layer editing functionality here
-        }
-
-        // Add New Connection
-        private void AddNewConnection(LayerData layer)
-        {
-            MessageBox.Show($"Adding New Connection to Layer: {layer.LayerName}", "Add Connection", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            // Add your connection adding functionality here
-        }
+        
+        
     }
 }

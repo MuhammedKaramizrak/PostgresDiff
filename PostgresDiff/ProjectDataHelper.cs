@@ -22,6 +22,7 @@ namespace PostgresDiff
             File.WriteAllText(SaveFilePath, json);
         }
 
+
         public static List<ProjectData> LoadAllProjectDatas()
         {
             if (!File.Exists(SaveFilePath))

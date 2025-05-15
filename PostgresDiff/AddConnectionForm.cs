@@ -2,11 +2,13 @@
 using System.Windows.Forms;
 using Npgsql;
 
+// ... using kısımları aynı ...
+
 namespace PostgresDiff
 {
     public partial class AddConnectionForm : Form
     {
-        private TextBox txtName, txtHost, txtPort, txtDatabase, txtUsername, txtPassword;
+        private TextBox txtName, txtHost, txtPort, txtDatabase, txtUsername, txtPassword, txtLogFile;
         private CheckBox chkInactive;
         private Button btnSave, btnTestConnection;
         private ConnectionListView connectionList;
@@ -18,7 +20,7 @@ namespace PostgresDiff
             InitializeComponent();
             this.connectionList = list;
             this.Text = connection == null ? "Add Connection" : "Edit Connection";
-            this.Size = new System.Drawing.Size(350, 320);
+            this.Size = new System.Drawing.Size(350, 370); // biraz yükselttik
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.StartPosition = FormStartPosition.CenterParent;
 
@@ -26,7 +28,7 @@ namespace PostgresDiff
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
-                RowCount = 8,
+                RowCount = 9, // log file eklendi
                 Padding = new Padding(10),
                 AutoSize = true
             };
@@ -40,7 +42,7 @@ namespace PostgresDiff
             txtHost = new TextBox() { Dock = DockStyle.Fill };
 
             Label lblPort = new Label() { Text = "Port", TextAlign = System.Drawing.ContentAlignment.MiddleRight, Dock = DockStyle.Fill };
-            txtPort = new TextBox() { Dock = DockStyle.Fill, Text = "5432" }; // Varsayılan PostgreSQL portu
+            txtPort = new TextBox() { Dock = DockStyle.Fill, Text = "5432" };
 
             Label lblDatabase = new Label() { Text = "Database", TextAlign = System.Drawing.ContentAlignment.MiddleRight, Dock = DockStyle.Fill };
             txtDatabase = new TextBox() { Dock = DockStyle.Fill };
@@ -50,6 +52,9 @@ namespace PostgresDiff
 
             Label lblPassword = new Label() { Text = "Password", TextAlign = System.Drawing.ContentAlignment.MiddleRight, Dock = DockStyle.Fill };
             txtPassword = new TextBox() { Dock = DockStyle.Fill, UseSystemPasswordChar = true };
+
+            Label lblLogFile = new Label() { Text = "Log File Path", TextAlign = System.Drawing.ContentAlignment.MiddleRight, Dock = DockStyle.Fill };
+            txtLogFile = new TextBox() { Dock = DockStyle.Fill };
 
             chkInactive = new CheckBox() { Text = "Inactive", Dock = DockStyle.Fill };
 
@@ -71,9 +76,11 @@ namespace PostgresDiff
             layout.Controls.Add(txtUsername, 1, 4);
             layout.Controls.Add(lblPassword, 0, 5);
             layout.Controls.Add(txtPassword, 1, 5);
-            layout.Controls.Add(chkInactive, 1, 6);
-            layout.Controls.Add(btnTestConnection, 0, 7);
-            layout.Controls.Add(btnSave, 1, 7);
+            layout.Controls.Add(lblLogFile, 0, 6);
+            layout.Controls.Add(txtLogFile, 1, 6);
+            layout.Controls.Add(chkInactive, 1, 7);
+            layout.Controls.Add(btnTestConnection, 0, 8);
+            layout.Controls.Add(btnSave, 1, 8);
 
             this.Controls.Add(layout);
 
@@ -88,6 +95,7 @@ namespace PostgresDiff
                 txtUsername.Text = connection.Username;
                 txtPassword.Text = connection.Password;
                 chkInactive.Checked = connection.Inactive;
+                txtLogFile.Text = connection.LogFilePath;
             }
         }
 
@@ -143,10 +151,16 @@ namespace PostgresDiff
                 editingConnection.Username = txtUsername.Text;
                 editingConnection.Password = txtPassword.Text;
                 editingConnection.Inactive = chkInactive.Checked;
+                editingConnection.LogFilePath = txtLogFile.Text;
             }
             else
             {
-                connectionList.AddConnection(txtName.Text, txtHost.Text, txtPort.Text, txtDatabase.Text, txtUsername.Text, txtPassword.Text, chkInactive.Checked);
+                var newConn = new ConnectionItem(txtName.Text, txtHost.Text, txtPort.Text, txtDatabase.Text,
+                    txtUsername.Text, txtPassword.Text, chkInactive.Checked)
+                {
+                    LogFilePath = txtLogFile.Text
+                };
+                connectionList.AddConnection(newConn);
             }
 
             this.DialogResult = DialogResult.OK;

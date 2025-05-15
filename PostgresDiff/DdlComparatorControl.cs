@@ -108,6 +108,7 @@ namespace PostgresDiff
             {
                 using (var conn = new NpgsqlConnection(connection.ConnectionString))
                 {
+                    
                     await conn.OpenAsync();
                     using (var cmd = new NpgsqlCommand("SELECT alttip as objecttype, objectadi, sqltext FROM public.funcviewtablemastercache", conn)) //burada type alıyorum
                     using (var reader = await cmd.ExecuteReaderAsync())
@@ -139,9 +140,11 @@ namespace PostgresDiff
                         objects = dict.Values.ToList();
                     }
                 }
+                connection.IsConnected = true;
             }
             catch (Exception ex)
             {
+                connection.IsConnected = false;
                 Console.WriteLine($"Veritabanından veri çekilirken hata oluştu: {ex.Message}");
             }
 
@@ -188,6 +191,68 @@ namespace PostgresDiff
                 }
             }
         }
+        public void SaveUserSelectedObjects()
+        {
+            var selectedObjects = objectData.Values
+                .Where(o => o.DiffStatus == Diffstatus.RequireSelectBaseEqual && o.SelectedDatabase >= 0 && o.SelectedDatabase < o.ListOneDataBase.Count)
+                .Select(o => new
+                {
+                    o.ObjectType,
+                    o.ObjectName,
+                    SelectedDatabaseName = o.ListOneDataBase[o.SelectedDatabase].connectionItem.Name,
+                    SqlText = o.ListOneDataBase[o.SelectedDatabase].SqlText
+                })
+                .ToList();
+
+            if (selectedObjects.Count == 0)
+            {
+                MessageBox.Show("No RequireSelectBaseEqual objects with user selection found.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var json = System.Text.Json.JsonSerializer.Serialize(selectedObjects, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+
+            var fileName = $"selected_objects_{DateTime.Now:yyyyMMdd_HHmmss}.json";
+            System.IO.File.WriteAllText(fileName, json);
+
+            MessageBox.Show($"Saved to: {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        public Dictionary<string, List<string>> GetUserSelections()
+        {
+            var result = new Dictionary<string, List<string>>();
+
+            if (objectData == null)
+                return result;
+
+            foreach (var kvp in objectData)
+            {
+                var obj = kvp.Value;
+
+                if (obj.DiffStatus == Diffstatus.RequireSelectBaseEqual || obj.DiffStatus == Diffstatus.RequireSelectBaseDif)
+                {
+                    // Seçili olan database index'ini bul
+                    for (int i = 0; i < Connections.Count; i++)
+                    {
+                        var conn = Connections[i];
+
+                        var selected = obj.ListOneDataBase.FirstOrDefault(x => x.connectionItem.ConnectionString == conn.ConnectionString);
+                        if (selected != null && obj.SelectedDatabase == i)
+                        {
+                            if (!result.ContainsKey(conn.Name))
+                                result[conn.Name] = new List<string>();
+
+                            result[conn.Name].Add(obj.ObjectName);
+                        }
+                    }
+                }
+            }
+
+            return result;
+        }
+
         public Dictionary<string, DatabaseObject> objectData;
         private void PopulateGrid(Dictionary<string, DatabaseObject> objectData2)
         {
@@ -447,6 +512,7 @@ namespace PostgresDiff
             }
         }
 
+        
 
 
 
@@ -464,6 +530,29 @@ namespace PostgresDiff
             MessageBox.Show(e.ToString());
         }
 
+        public void UpdateSelectedDatabaseInProject(LayerData layer)
+        {
+            if (objectData == null)
+                return;
+
+            layer.DatabaseObjects.Clear(); // Eski seçimleri sıfırla
+
+            foreach (var kvp in objectData)
+            {
+                var dbObj = kvp.Value;
+
+                // Sadece seçim yapılmışsa ekle
+                if (dbObj.SelectedDatabase > 0)
+                {
+                    layer.DatabaseObjects.Add(new DatabaseObject
+                    {
+                        ObjectName = dbObj.ObjectName,
+                        SelectedDatabase = dbObj.SelectedDatabase
+                    });
+                }
+            }
+        }
+
 
 
 
@@ -476,12 +565,23 @@ namespace PostgresDiff
                 {
                     var cell = dataGridView.Rows[e.RowIndex].Cells[e.ColumnIndex];
                     if (cell.ReadOnly) return;
-                    // Null korumalı bool dönüşümü
-                    bool isSelected = cell.Value != null && (bool)cell.Value;
 
+                    // Mevcut değer tersine çevrilir (toggle)
+                    bool isSelected = cell.Value != null && (bool)cell.Value;
                     cell.Value = !isSelected;
 
-                    // Diğer checkbox'ları sıfırla
+                    string objectName = dataGridView.Rows[e.RowIndex].Cells[1].Value?.ToString();
+                    if (string.IsNullOrEmpty(objectName)) return;
+
+                    if (objectData.TryGetValue(objectName, out var dbObj))
+                    {
+                        if ((bool)cell.Value == true)
+                            dbObj.SelectedDatabase = e.ColumnIndex - 1; // çünkü checkbox'lar 2. kolondan başlıyor → DB1 = 2-1 = 1
+                        else
+                            dbObj.SelectedDatabase = 0;
+                    }
+
+                    // Aynı satırda diğer tüm checkbox'ları sıfırla
                     for (int i = 2; i < dataGridView.Columns.Count; i++)
                     {
                         if (i != e.ColumnIndex &&
@@ -492,13 +592,10 @@ namespace PostgresDiff
                             otherCell.Value = false;
                         }
                     }
-
-                   // string selectedDb = dataGridView.Columns[e.ColumnIndex].HeaderText;
-                   // string objectName = dataGridView.Rows[e.RowIndex].Cells[1].Value.ToString(); // dikkat: name 2. kolonda
-                   // Console.WriteLine($"Veritabanı: {selectedDb}, Obje Adı: {objectName}, Seçim Durumu: {cell.Value}");
                 }
             }
         }
+
 
 
 
@@ -518,12 +615,19 @@ namespace PostgresDiff
 
     public class DatabaseObject
     {
+        public DatabaseObject()
+        {
+                
+        }
         public string ObjectType { get; set; }
         public string ObjectName { get; set; }
 
         public List<OneDataBase> ListOneDataBase { get; set; }
 
-        public int SelectedDatabase { get; set; }
+        public int SelectedDatabase 
+        { get; 
+            set; 
+        }
         public bool AutoSelectted { get; set; }
         public bool HasDifference { get; set; }
 
