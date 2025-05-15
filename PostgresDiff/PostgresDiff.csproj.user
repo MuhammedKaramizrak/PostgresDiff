@@ -4,6 +4,9 @@
     <Compile Update="AddConnectionForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Update="CompareForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Update="MainScreen.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -12,9 +15,6 @@
     </Compile>
     <Compile Update="DiffViewer.cs">
       <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Update="CompareForm.cs">
-      <SubType>Form</SubType>
     </Compile>
     <Compile Update="MultiDiffViewer.cs">
       <SubType>UserControl</SubType>

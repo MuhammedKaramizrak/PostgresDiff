@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PostgresDiff")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+28e033158f765502c5cf058ce7fe96f72fb459c0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
 [assembly: System.Reflection.AssemblyProductAttribute("PostgresDiff")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PostgresDiff")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
