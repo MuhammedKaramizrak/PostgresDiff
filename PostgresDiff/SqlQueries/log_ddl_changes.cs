@@ -10,34 +10,7 @@ namespace PostgresDiff
     public class log_ddl_changes : ISQLQuery
     {
         public string sqlquerytext { get { return sqlq; } }
-        public static string sqlq = @"---DROP TABLE IF EXISTS ddl_posgresqllog ;
-
----drop sequence if exists ddl_posgresqllog_id_seq;
--- Sequence oluşturuluyor (Tablo henüz olmadığı için OWNED BY kullanmıyoruz)
-CREATE SEQUENCE IF NOT EXISTS ddl_posgresqllog_id_seq;
-
--- Yeni tablo oluşturuluyor
-CREATE table if not exists ddl_posgresqllog (
-    id INTEGER PRIMARY KEY DEFAULT nextval('ddl_posgresqllog_id_seq'),
-    logtime TIMESTAMP,
-    object_schema TEXT,
-    object_type text,
-    object_name TEXT,
-    logcommand TEXT
-);
-
--- Sequence'i tabloya bağlıyoruz
-ALTER sequence  ddl_posgresqllog_id_seq OWNED BY ddl_posgresqllog.id;
-
--- Index oluşturuluyor
-CREATE index if not exists idx_object_schema_name ON ddl_posgresqllog (object_schema, object_name);
-
-
----select * from ddl_posgresqllog
-
----drop function search_log_entries;
-
-
+        public static string sqlq = @"
 CREATE OR REPLACE FUNCTION log_ddl_changes()
 RETURNS event_trigger AS $$
 DECLARE 
@@ -52,7 +25,7 @@ iteration int4;
 offvalue int4;
 BEGIN
   ---
-     --- return ;
+     -- return ;
     -- ddl_log tablosunun var olup olmadığını kontrol et
     SELECT EXISTS (
         SELECT 1 FROM information_schema.tables 
@@ -82,20 +55,39 @@ if rec.schema_name = 'pg_temp' then
          --  raise notice 'atladim % ', rec.schema_name ;
            continue;
     end if;
---
-     generatedcommandrec  =  public.funcviewgonder2(    rec.schema_name,   rec.object_type,  rec.objid ); 
-    shortobjectidentity := (REPLACE( (rec.object_identity::text), ((rec.schema_name ||'.'))::text , ''));
+     raise notice 'rec.object_identity = % rec.object_type = %, rec.objid %', rec.object_identity, rec.object_type, rec.objid ;
+	---select * from public.funcviewgonder2( 'public',   'sequence',  16608 )
+   --  generatedcommandrec  =  public.funcviewgonder2(    rec.schema_name,   rec.object_type,  rec.objid ); 
+   IF rec.objid IS NOT NULL THEN
+    PERFORM public.funcviewgonder2(rec.schema_name, rec.object_type, rec.objid);
+ -- select * from public.funcviewtablemastercache
+    SELECT *
+    INTO generatedcommandrec
+    FROM public.funcviewtablemastercache
+    WHERE objectadi = rec.object_identity
+      AND objecttype = UPPER(rec.object_type)
+    LIMIT 1;
+   END IF;
+ --   shortobjectidentity := (REPLACE( (rec.object_identity::text), ((rec.schema_name ||'.'))::text , ''));
+ shortobjectidentity := regexp_replace(rec.object_identity::text, '^' || rec.schema_name || '\.', '', 'i');
+	 raise notice 'shortobjectidentity = % ', shortobjectidentity ;
     iteration = iteration + 1;
       if iteration = 1 then
     begin  
          if shortobjectidentity is null then
          raise notice 'REPLACE( %::text, %.)::text , '''');', rec.object_identity, rec.schema_name;
           end if;
+		  RAISE NOTICE 'select * from search_log_entries(''%s'', ''%s'');',
+    to_char(DATE_TRUNC('milliseconds', now() AT TIME ZONE current_setting('log_timezone')), 'YYYY-MM-DD HH24:MI:SS.MS'),
+    shortobjectidentity;
    drop table if exists reallogcommandtable;
    create temp table reallogcommandtable as 
   ( select * from search_log_entries( DATE_TRUNC('milliseconds', now() AT TIME ZONE current_setting('log_timezone')),
 	          shortobjectidentity));
-   --
+RAISE NOTICE 'select * from search_log_entries(''%'', ''%'');',
+    to_char(DATE_TRUNC('milliseconds', now() AT TIME ZONE current_setting('log_timezone')), 'YYYY-MM-DD HH24:MI:SS.MS'),
+    shortobjectidentity;			  
+   --select * from search_log_entries('2025-06-19 00:49:51.594', 'log_ddl_changes()');
  EXCEPTION
       WHEN others THEN 
        raise notice '1111shortobjectidentity % , %--', rec.object_identity, SQLERRM;
@@ -118,20 +110,20 @@ if rec.schema_name = 'pg_temp' then
             rec.in_extension, 
             generatedcommandrec.sqltext -- `pg_ddl_command` verisini text olarak al
         );
-  ----
+  ---- select * from funcviewtablemastercache 
      recexists =( select count(*) from funcviewtablemastercache 
                 where objectadi =  rec.object_identity 
-                and alttip = UPPER(rec.object_type))  ;
+                and objecttype = UPPER(rec.object_type))  ;
    if recexists = 1 then 
     update  funcviewtablemastercache 
        set sqltext = generatedcommandrec.sqltext ,
         rsqltext = generatedcommandrec.rsqltext
           where objectadi =  rec.object_identity 
-     and alttip = UPPER(rec.object_type)  ;
+     and UPPER(objecttype) = UPPER(rec.object_type)  ;
   end if;
 ---
  if recexists = 0 then 
-    insert into  funcviewtablemastercache (alttip,  objectadi, sqltext, rsqltext)
+    insert into  funcviewtablemastercache (objecttype,  objectadi, sqltext, rsqltext)
      values ( UPPER(rec.object_type) , rec.object_identity ,
           generatedcommandrec.sqltext ,
           generatedcommandrec.rsqltext
@@ -203,17 +195,10 @@ raise notice  'select * from search_log_entries( % , % ));' ,
 END;
 $$ LANGUAGE plpgsql;
 
-DO $$ 
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_event_trigger WHERE evtname = 'track_ddl_changes'
-    ) THEN
-        CREATE EVENT TRIGGER track_ddl_changes
-        ON ddl_command_end
-        EXECUTE FUNCTION log_ddl_changes();
-    END IF;
-END $$;
-
+--select * from search_log_entries('2025-06-20 15:04:03.348', 'log_ddl_changes()');
+--SHOW config_file;
+-- DROP EVENT TRIGGER track_ddl_changes
+--select * from ddl_posgresqllog
 ";
     }
 }

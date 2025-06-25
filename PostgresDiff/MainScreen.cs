@@ -283,14 +283,14 @@ namespace PostgresDiff
 
                 layerPanel.Controls.Add(lblLayerName, 0, 0);
                 layerPanel.SetColumnSpan(lblLayerName, 2);
-
+                
                 // ConnectionListView
-                var connView = new ConnectionListView(layer.LayerName)
+                var connView = new ConnectionListView(layer.Connections)
                 {
                     Dock = DockStyle.Fill,
                     MinimumSize = new Size(0, 100)
                 };
-                await connView.AddConnection(layer.Connections);
+           
                 layerPanel.Controls.Add(connView, 0, 1);
 
                 // DdlComparatorControl

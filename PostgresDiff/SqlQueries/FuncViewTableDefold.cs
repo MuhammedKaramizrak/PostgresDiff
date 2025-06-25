@@ -6,11 +6,13 @@ using System.Threading.Tasks;
 
 namespace PostgresDiff
 {
-
-    public class GetTableDef : ISQLQuery
+    
+    public class FuncViewTableDefold : ISQLQuery
     {
         public string sqlquerytext { get { return sqlq; } }
         public static string sqlq = @"
+--drop function if exists public.funcviewTableDef(she text,   gobject_type text  default null,  gobjid oid default null, includedtables bool default false )
+
 CREATE OR REPLACE FUNCTION public.pg_get_tabledeftum(in_schema character varying, _verbose boolean, VARIADIC arr tabledefs[] DEFAULT '{}'::tabledefs[] )
  RETURNS TABLE(in_table text, def text)
  LANGUAGE plpgsql
@@ -876,5 +878,6 @@ AND relkind = 'r'  and relname <> 'v2yedekviewfunc' -- limit 10 --and  relname l
 $function$
 ;
 ";
+    }
 
-} }
+}

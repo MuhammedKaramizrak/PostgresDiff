@@ -6,467 +6,178 @@ using System.Threading.Tasks;
 
 namespace PostgresDiff
 {
-
+    public interface ISQLQuery
+    {
+        static string sqlquerytext { get; }
+    }
     public class funcviewal2 : ISQLQuery
     {
         public string sqlquerytext { get { return sqlq; } }
-        public static string sqlq = @"--drop FUNCTION public.funcviewal2 ( updatemi text, _host text, _port text, _database text, she text, _user text, _password text)
--- Tuana hanım kesinlikle master a kurma
-
---- Tuana Type  içinde baska Type olursa haber ver mudahale ederiz mami
---- Tuana var olan Table columnları değişirse çözüm yok ama hata mesajlarından anlarsın 
-CREATE OR REPLACE FUNCTION public.funcviewal2(updatemi text, _host text, _port text, _database text, she text, _user text, _password text)
-RETURNS 
-table  ( id3 int4 ,
-       yedektarihi3 timestamp  ,
-       tipi3 text ,
-       altip3 text ,
-    objectadi3 text ,
-    clobjectadi3 text ,
-       sira3 int4 ,
-       sqlquery3 text ,
-    reversesqlquery3 text ,
-    islendi3 bool, clsqltext3 text, clrsql3 text
-     
-    -- gyedekid int4 ,
-    --   yedektarihi timestamp  ,
-    --   tipi text ,
-    --   altip text ,
-    --   sira int4 ,
-   --- objectadi text ,
-   --    sqlquery text ,
-  --  reversesqlquery text
+        public static string sqlq = @"CREATE OR REPLACE FUNCTION public.funcviewgonder2(
+    she text,
+    gobject_type text default null,
+    gobjid oid default null
 )
+RETURNS void
 LANGUAGE plpgsql
-AS $function$
+AS $$
 DECLARE
-temprec record;
-karsi record;
-karsi2 record;
-karsi3 record;
-karsi4 record;
-a text;
-f_rec record;
-  l_rec record;
-r_rec record;
-  l_stmt text;
-  donsql text = '';
-  rsql text = '';
-gelensql text[];
-_sql text;
-tektext text;
-_connectionst2 text;
-sonsira int4;
-denemesay int4 = 0;
-sonyedekid int4 = 0;
-sonyedektarihi timestamp;
-kayitadedi int4 = 0;
-    clienttabledef text ;
-bos text = '';
-kayitsayisi int4;
-begin
-  
-  l_stmt := format(
-        'CREATE TABLE IF NOT EXISTS %I.v2yedekviewfunc (
-            id serial4 PRIMARY KEY,
-            yedekid int4 NOT NULL,
-            yedektarihi timestamp NULL,
-            tipi text NULL,
-            altip text NULL,
-            sira int4 NULL,
-            objectadi text NULL,
-            sqlquery text NULL,
-            reversesql text NULL
-        )', she);
+    fun_rec record;
+    l_rec record;
+    l_stmt text;
+    sqltext text;
+    rsqltext text;
+    objectadi text;
+    alttip text;
+    cache_exists boolean;
+BEGIN
+    -- Tablo var mı kontrol et
+    SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'funcviewtablemastercache'
+    ) INTO cache_exists;
 
+    -- Yoksa oluştur
+    IF NOT cache_exists THEN
+        EXECUTE $create$
+        CREATE TABLE public.funcviewtablemastercache (
+            objecttype text,
+            objectadi text,
+            sqltext text,
+            rsqltext text
+        )
+        $create$;
+    END IF;
+
+    -- Temizle
+    DELETE FROM public.funcviewtablemastercache;
+
+    -- FUNCTION / PROCEDURE
+    IF gobject_type IS NULL OR gobject_type ILIKE ANY(ARRAY['function','procedure']) THEN
+        FOR fun_rec IN (
+            SELECT
+                CASE prokind
+                    WHEN 'f' THEN 'FUNCTION'
+                    WHEN 'p' THEN 'PROCEDURE'
+                    ELSE NULL
+                END AS alttip,
+                (SELECT pg_get_functiondef(p.oid)) AS sqltext,
+                format('DROP %s IF EXISTS %s;', 
+                    CASE prokind
+                        WHEN 'f' THEN 'FUNCTION'
+                        WHEN 'p' THEN 'PROCEDURE'
+                    END,
+                    p.oid::regprocedure
+                ) AS rsqltext,
+                p.oid::regprocedure::text AS objectname
+            FROM pg_proc p
+            JOIN pg_namespace n ON p.pronamespace = n.oid
+            JOIN pg_language l ON l.oid = p.prolang
+            LEFT JOIN pg_extension e ON n.nspname = e.extname
+            WHERE n.nspname = she
+              AND e.extname IS NULL
+              AND l.lanname = 'plpgsql'
+              AND prokind IN ('f', 'p')
+              AND proname NOT IN (
+                '_insert2table', '_i2utable', 'listtables', 'random_between',
+                'owneral', 'sorttablesbydependency', '_update2table', 'view2func',
+                'rez_asyavalidate', 'drop_all_user_objects', 'beforefunc',
+                'fatura_asyavalidate', 'getmaliyethesap', 'musteri_asyavalidate', 'ef2tablo'
+              )
+              AND (gobject_type IS NULL OR LOWER(gobject_type) = CASE prokind WHEN 'f' THEN 'function' WHEN 'p' THEN 'procedure' END)
+              AND (gobjid IS NULL OR gobjid = p.oid)
+        ) LOOP
+            INSERT INTO public.funcviewtablemastercache(objecttype, objectadi, sqltext, rsqltext)
+            VALUES (fun_rec.alttip, she || '.' || fun_rec.objectname, fun_rec.sqltext || ';', fun_rec.rsqltext);
+        END LOOP;
+    END IF;
+   -- TYPES
+if gobject_type is null or LOWER(gobject_type) = 'type' then
+  for l_rec in (
+    SELECT
+      n.nspname AS schema_name,
+      t.typname AS type_name,
+      string_agg(quote_literal(e.enumlabel), ', ') AS enum_labels
+    FROM pg_type t
+    JOIN pg_enum e ON t.oid = e.enumtypid
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typtype = 'e' AND n.nspname = she  -- sadece ilgili şema
+    GROUP BY n.nspname, t.typname
+  )
+  loop
+    sqltext := 'CREATE TYPE ' || quote_ident(l_rec.schema_name) || '.' || quote_ident(l_rec.type_name)
+               || ' AS ENUM (' || l_rec.enum_labels || ');';
+    alttip := 'TYPE';
+    objectadi := l_rec.schema_name || '.' || l_rec.type_name;
+    rsqltext := 'DROP TYPE IF EXISTS ' || quote_ident(l_rec.schema_name) || '.' || quote_ident(l_rec.type_name) || ' CASCADE;';
     
-    EXECUTE l_stmt;
-
-
- 
- drop  table if exists v2yedekviewfunctemp;
- 
-
-
-create temp table if not exists v2yedekviewfunctemp (
-    id serial4 NOT NULL,
-       yedektarihi timestamp  NULL,
-       tipi text NULL,
-       altip text NULL,
-    objectadi text null,
-       sira int4 NULL,
-       sqlquery text NULL,
-    reversesqlquery text NULL,
-    islendi bool,
-       CONSTRAINT ""pk.v2yedekviewfunctemp"" PRIMARY KEY (id)
-);
-  truncate v2yedekviewfunctemp;
-    
-
-sonyedekid = coalesce((select max(yedekid) from v2yedekviewfunc),0);
-  sonyedekid = sonyedekid + 1;
-sonyedektarihi = now();
-
-
- 
- 
-
-
- 
-
- 
- 
- 
- 
-   
-_connectionst2 = 'dbname=' || _database || ' port=' || _port || ' host=' || _host || ' user=' ||
-_user || ' password=' || _password ; --|| ' connection_timeout = 2';
-  
- 
-raise notice 'karsiiiiiii  -- %', _connectionst2;
-    a = 'SELECT
-       n.nspname || ''.'' || t.typname as sobj,
-       CASE
-           WHEN t.typtype = ''e'' THEN
-               ''CREATE TYPE '' || n.nspname || ''.'' || t.typname || '' AS ENUM ('' ||
-               pg_catalog.array_to_string (
-                   ARRAY( SELECT e.enumlabel
-                          FROM pg_catalog.pg_enum e
-                          WHERE e.enumtypid = t.oid
-                          ORDER BY e.oid ), '', ''
-               ) || '');''
-           WHEN t.typtype = ''c'' THEN
-               -- Composite türleri için sütunları alıyoruz ve formatı düzeltip sıralama sağlıyoruz
-               ''CREATE TYPE '' || n.nspname || ''.'' || t.typname || '' AS ('' ||
-               (SELECT string_agg(
-                   c.attname || '' '' || pg_catalog.format_type(c.atttypid, NULL),
-                   '', ''
-               )
-               FROM pg_catalog.pg_attribute c
-               WHERE c.attrelid = t.typrelid
-                 AND c.attnum > 0) || '');''
-           ELSE
-               ''CREATE TYPE '' || n.nspname || ''.'' || t.typname || '';''
-       END AS create_type_command
-FROM pg_catalog.pg_type t
-LEFT JOIN pg_catalog.pg_namespace n
-    ON n.oid = t.typnamespace
-WHERE ( t.typrelid = 0
-        OR ( SELECT c.relkind = ''c''
-                FROM pg_catalog.pg_class c
-                WHERE c.oid = t.typrelid
-            )
-      )
-  AND NOT EXISTS
-      ( SELECT 1
-          FROM pg_catalog.pg_type el
-          WHERE el.oid = t.typelem
-              AND el.typarray = t.oid
-      )
-  AND n.nspname <> ''pg_catalog''
-  AND n.nspname <> ''information_schema''
-  AND pg_catalog.pg_type_is_visible(t.oid)
-ORDER BY 1;';
-
-CREATE TEMP TABLE temp_types (adi TEXT, def TEXT) ON COMMIT DROP;
-
-    -- Dinamik SQL'in çıktısını geçici tabloya ekle
-    EXECUTE 'INSERT INTO temp_types ' || a;
-for karsi4 in
-(select  kar.def def , kar.adi adi , bu2.def budef, bu2.adi buadi from 
-(select  * from
-dblink(_connectionst2 ,
-a
-
-)
-as _txt( adi text ,def text  ) ) kar left join (select * from  temp_types) bu2
-on bu2.adi = kar.adi 
-)
-
-loop
-begin 
-  if karsi4.def = karsi4.budef then
-    
-  else
-		   if karsi4.def is not null then 
-		 execute karsi4.def;
-		  end if;
-  end if;
-  exception when others then
-        
-       raise notice 'TYPE DEF % atlandi % ' , karsi4.def, SQLERRM;
-    end;
-
-end loop;
-   a =  'SELECT
-    (''CREATE SEQUENCE if not exists '' || sequencename ||
-    '' START '' || COALESCE(start_value::text, ''1'') ||
-    '' INCREMENT BY '' || COALESCE(increment_by::text, ''1'') ||
-    '' MINVALUE '' || COALESCE(min_value::text, ''1'') ||
-    '' MAXVALUE '' || COALESCE(max_value::text, ''9223372036854775807'') ||
-    '' CACHE '' || COALESCE(cache_size::text, ''1'') || '';'') as def , sequencename adi
-FROM pg_sequences';
-CREATE TEMP TABLE temp_sequences (adi TEXT, def TEXT) ON COMMIT DROP;
-
-    -- Dinamik SQL'in çıktısını geçici tabloya ekle
-    EXECUTE 'INSERT INTO temp_sequences ' || a;
-
-for karsi3 in
-(
-select  kar.adi adi, kar.def def, bu2.adi buadi, bu2.def budef from (
-select * from dblink(_connectionst2 ,
-a
-)
-as _txt(def text, adi text  )  
-) kar left join (select * from  temp_sequences ) bu2 on  bu2.adi = kar.adi 
-)
-
-loop
- if  karsi4.def = karsi4.budef then
-    bos = '';    --raise notice 'Squence  % var zaten  ' , karsi3.adi ;
-   else
-     execute karsi3.def;
- end if;
-end loop;
-
-
-
-   for temprec in
-(
-select  * from
-dblink(_connectionst2 ,
---'select adi  from acenta limit 1'
-'select * from funcviewtablemastercache'
-) as _txt(alttip text, objectadi text, sqltext character varying, rsqltext character varying)
-)
-loop
-
-insert into v2yedekviewfunctemp ( tipi, altip, sqlquery, islendi,reversesqlquery, objectadi)
-         values ('CREATE', temprec.alttip,  temprec.sqltext, false, temprec.rsqltext, she ||'.' ||temprec.objectadi);
-
-  -- raise notice '%' ,  karsi.alttip || karsi.objectadi; 
-  --execute karsi._view;
--- continue;
-end loop;
- 
-
-
-
-for temprec in (select * from funcviewtablemastercache)
-    loop
-
- insert into v2yedekviewfunctemp ( tipi, altip, sqlquery, islendi,reversesqlquery, objectadi)
-         values ('DROP', temprec.alttip,  temprec.sqltext, false, temprec.rsqltext, she ||'.' ||temprec.objectadi);
-end loop;
-
-drop table if exists v2yedekviewfunccache;
-
-create  table if not exists  v2yedekviewfunccache as 
-select * from 
-(select ms.id  ,
-       sonyedektarihi as yedektarihi   ,
-       ms.tipi  ,
-       ms.altip  ,
-    ms.objectadi  ,
-      cl.objectadi clobjectadi,
-       1 as sira  ,
-       ms.sqlquery  ,
-    ms.reversesqlquery ,
-    ms.islendi , cl.sqlquery clsql, cl.reversesqlquery clrsql from 
-(select * from v2yedekviewfunctemp   where  tipi = 'CREATE' ) ms 
-  full outer join (select * from v2yedekviewfunctemp   where  tipi = 'DROP' ) cl
-  on   ms.altip = cl.altip and ms.objectadi = cl.objectadi) ;
-
- drop  table if exists v2yedekviewfunctemp3;
-
-create temp table  v2yedekviewfunctemp3 as 
-select id id ,
-       yedektarihi yedektarihi  ,
-       tipi tipi ,
-       altip altip ,
-    objectadi objectadi ,
-    clobjectadi clobjectadi ,
-       sira sira ,
-       sqlquery sqlquery ,
-    reversesqlquery reversesqlquery ,
-    islendi islendi, clsql clsqltext, clrsql clrsql from 
-( select * from v2yedekviewfunccache);
-
-for temprec in (select * from v2yedekviewfunctemp3)
-    loop
-
- if temprec.sqlquery = temprec.clsqltext then 
-   update v2yedekviewfunctemp3 set islendi = true where id = temprec.id; 
+    INSERT INTO public.funcviewtablemastercache(objecttype, objectadi, sqltext, rsqltext)
+    VALUES (alttip, objectadi, sqltext, rsqltext);
+  end loop;
 end if;
-   end loop;
 
+    -- VIEW
+    IF gobject_type IS NULL OR LOWER(gobject_type) = 'view' THEN
+        FOR l_rec IN (
+            SELECT v.schemaname, v.viewname, c.oid
+            FROM pg_views v
+            JOIN pg_class c ON c.relname = v.viewname AND c.relkind = 'v'
+            WHERE v.schemaname = she
+              AND (gobject_type IS NULL OR gobject_type = 'view')
+              AND (gobjid IS NULL OR c.oid = gobjid)
+        ) LOOP
+            sqltext := 'CREATE OR REPLACE VIEW ' || quote_ident(l_rec.schemaname) || '.' || quote_ident(l_rec.viewname) || ' AS ' ||
+                       pg_get_viewdef(l_rec.schemaname || '.' || l_rec.viewname, true);
+            rsqltext := format('DROP VIEW IF EXISTS %I.%I;', l_rec.schemaname, l_rec.viewname);
+            objectadi := l_rec.schemaname || '.' || l_rec.viewname;
 
-drop  table if exists v2yedekviewfunctemp2;
+            INSERT INTO public.funcviewtablemastercache(objecttype, objectadi, sqltext, rsqltext)
+            VALUES ('VIEW', objectadi, sqltext || ';', rsqltext);
+        END LOOP;
+    END IF;
+    -- TABLE
+    IF gobject_type IS NULL OR LOWER(gobject_type) = 'table' THEN
+        FOR l_rec IN (
+            SELECT def AS tdef, in_table AS tabadi
+            FROM pg_get_tabledeftum(she, false)
+            WHERE gobjid IS NULL  OR in_table::regclass::oid = gobjid
+        ) LOOP
+            sqltext := l_rec.tdef;
+            objectadi := l_rec.tabadi;
+            rsqltext := 'DROP TABLE IF EXISTS ' || l_rec.tabadi || ';';
 
-create temp table  v2yedekviewfunctemp2 as 
-select * from v2yedekviewfunctemp3 where altip = 'TABLE' ;
+            INSERT INTO public.funcviewtablemastercache(objecttype, objectadi, sqltext, rsqltext)
+            VALUES ('TABLE', objectadi, sqltext || ';', rsqltext);
+        END LOOP;
+    END IF;
+    -- TRIGGER
+    IF gobject_type IS NULL OR LOWER(gobject_type) = 'trigger' THEN
+        FOR l_rec IN (
+            SELECT 
+                tg.tgname AS trigger_name,
+                n.nspname AS schema_name,
+                c.relname AS table_name,
+                pg_get_triggerdef(tg.oid) AS create_trigger_query,
+                'DROP TRIGGER IF EXISTS ' || quote_ident(tg.tgname) || 
+                ' ON ' || quote_ident(n.nspname) || '.' || quote_ident(c.relname) || ';' AS drop_trigger_query
+            FROM pg_trigger tg
+            JOIN pg_class c ON tg.tgrelid = c.oid
+            JOIN pg_namespace n ON c.relnamespace = n.oid
+            WHERE NOT tg.tgisinternal
+              AND n.nspname = she
+              AND (gobject_type IS NULL OR gobject_type = 'trigger')
+              AND (gobjid IS NULL OR tg.oid = gobjid)
+        ) LOOP
+            objectadi := l_rec.schema_name || '.' || l_rec.trigger_name;
 
-for temprec in (select * from v2yedekviewfunctemp2)
-    loop
+            INSERT INTO public.funcviewtablemastercache(objecttype, objectadi, sqltext, rsqltext)
+            VALUES ('TRIGGER', objectadi, l_rec.create_trigger_query || ';', l_rec.drop_trigger_query || ';');
+        END LOOP;
+    END IF;
 
- if temprec.sqlquery = temprec.clsqltext then 
-   update v2yedekviewfunctemp2 set islendi = true where id = temprec.id;
-  else
-raise notice 'geldi' ;
-end if;
-   end loop;
-
-
-
-sonsira = 0;
-denemesay = 0; 
-
-
-
-
-
-while ((select  count(*) from v2yedekviewfunctemp2 t where t.islendi = false) > 0 and denemesay  < 11)
- 
-   loop
-  denemesay = denemesay + 1;
-   raise notice '%.DENEME -----------------------', denemesay;
-   for temprec in
-     (select * from v2yedekviewfunctemp2 t where 
-      t.islendi = false)
-       loop
-   ----basladık işleme 
-         if   temprec.altip = 'TABLE' then 
-   -- table ise durum ozel eger yoksa ac 
-            if temprec.clobjectadi is null then
-	                begin               
-	                   execute temprec.sqlquery;
-	                   sonsira = sonsira + 1;
-	                   update v2yedekviewfunctemp2  set islendi = true , sira =  sonsira
-	                       where v2yedekviewfunctemp2.id = temprec.id ;
-	                   exception when others then -- olmadi ise dependency olabilir atla 25 kere deneyecez sonuçta
-	                  if denemesay = 10 then
-	                          raise notice ' % karsida data yok   data olmadi ----Sql -- %', temprec.objectadi,  temprec.sqlquery;
-	                         end if;
-	                 end;
-              else --yani burada  dosya var kayıt yoksa dropla
-                  	 execute ('Select count(*) from ' || temprec.objectadi ) into kayitsayisi;
-                    if kayitsayisi = 0 then 
------ veri yok dropla gitsin
-                       begin   
-                               
-			                   execute temprec.reversesqlquery;
-			                   execute temprec.sqlquery;
-			                   sonsira = sonsira + 1;
-			                   update v2yedekviewfunctemp2  set islendi = true , sira =  sonsira
-			                       where v2yedekviewfunctemp2.id = temprec.id ;
-			                   exception when others then -- olmadi ise dependency olabilir atla 25 kere deneyecez sonuçta
-			                  if denemesay = 10 then
-	                          raise notice ' % tablosunda  0 data olmadi ', temprec.objectadi;
-	                         end if;
-			              end;
-                     else
-	                      if denemesay = 10 then
-	                          raise notice ' % tablosunda  data  droplayamam çözüm bul ', temprec.objectadi;
-	                      end if;
-                   end if;
-               end if; 
-            
-        end if;
-     end loop;
- end loop;
-return query select * from v2yedekviewfunctemp2;
-
-
-
-
-drop  table if exists v2yedekviewfunctemp5;
-
-create temp table  v2yedekviewfunctemp5 as 
-select * from v2yedekviewfunctemp3 where altip <> 'TABLE' ;
-
-for temprec in (select * from v2yedekviewfunctemp5)
-    loop
-
- if temprec.sqlquery = temprec.clsqltext then 
-   update v2yedekviewfunctemp5 set islendi = true where id = temprec.id; 
-end if;
-   end loop;
-
-
-
-
-denemesay = 0; 
-
-
-begin 
-while ((select  count(*) from v2yedekviewfunctemp5 t where t.islendi = false) > 0 and denemesay  < 11)
- 
-   loop
-    begin
-  denemesay = denemesay + 1;
-     
-   raise notice '%.DENEME -----------------------', denemesay;
-   for temprec in
-     (select * from v2yedekviewfunctemp5 t where 
-      t.islendi = false)
-       loop
-   ----basladık işleme 
-                 begin  
-          
-                   execute temprec.sqlquery;
-                   if denemesay = 2 then
-                  raise notice ' deneme --%',  temprec.sqlquery;
-                  end if;
-                   sonsira = sonsira + 1;
-                   update v2yedekviewfunctemp5  set islendi = true , sira =  sonsira
-                       where v2yedekviewfunctemp5.id = temprec.id ;
-                                if denemesay = 2 then
-						                  raise notice 'exception   pdate v2yedekviewfunctemp2';
-						               end if;  
-                   exception when others then -- olmadi ise dependency olabilir maa bir kere de droplayıp deneyelim
-                   begin
-						if denemesay = 2 then
-						                  raise notice 'exception   deneme --%',  temprec.sqlquery;
-						               end if;
-                           execute temprec.reversesqlquery; 
-                               if denemesay = 2 then
-						                  raise notice 'geldi';
-						               end if;
-                          execute temprec.sqlquery;
-                                      if denemesay = 2 then
-						                  raise notice 'geldi  sqlquery';
-						               end if;
-                        sonsira = sonsira + 1;
-                      update v2yedekviewfunctemp5  set islendi = true , sira =  sonsira
-                       where v2yedekviewfunctemp5.id = temprec.id ;
-                                  if denemesay = 2 then
-						                  raise notice 'geldi  update v2yedekviewfunctemp2';
-						               end if;
-                       exception when others then 
-		                      if denemesay = 2 then
-		                          raise notice ' %   %   droplayamadim çözüm bul sql1 -- %  sql2 % % ', 
-               temprec.altip , temprec.objectadi, temprec.reversesqlquery,  temprec.sqlquery, SQLERRM; 
-		                      end if;
-                             bos = '';              -- sonraki sefer kesin dependency
-                    end;   
-                  
-               end ;
-    
-     end loop;
-     exception when others then 
-       raise exception 'Hataaaaa % '  , SQLERRM;
-      end;
- end loop;
-exception when others then 
-       raise exception 'Hataaaaa % '  , SQLERRM;
-end ;
-
-
-
-
-end;
-$function$
-;
+$$;
 ";
     }
 }

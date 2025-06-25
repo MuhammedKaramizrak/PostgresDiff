@@ -20,6 +20,12 @@ namespace PostgresDiff
         public bool Inactive { get; set; }
         public string LogFilePath { get; set; }
         public bool IsDefault { get; set; } = false;
+
+
+        public string OperatingSystem { get; set; }      // e.g. "Windows", "Linux"
+        public string LogDirectory { get; set; }          // e.g. "log"
+        public string LogFilePattern { get; set; }        // e.g. "postgresql-%Y-%m-%d_%H%M%S.log"
+        public string DataDirectory { get; set; }         // full data directory
         public string ConnectionString => $"Host={Host};Port={Port};Database={Database};Username={Username};Password={Password};Timeout=5;";
 
         public override string ToString()
@@ -139,10 +145,9 @@ namespace PostgresDiff
 
 
 
-        public ConnectionListView(string layername) : this()
+        public ConnectionListView(List<ConnectionItem> _Connections ) : this()
         {
-            // İlgili bağlantı bilgileri masorclient üzerinden alınabilir
-            // Henüz bir işlem tanımlı değil
+            Connections = _Connections;
         }
 
         public ConnectionListView(ConnectionItem connection) : this()

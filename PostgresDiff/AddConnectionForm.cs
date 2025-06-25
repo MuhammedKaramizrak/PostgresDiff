@@ -20,6 +20,8 @@ namespace PostgresDiff
             InitializeComponent();
             this.connectionList = list;
             this.Text = connection == null ? "Add Connection" : "Edit Connection";
+            
+
             this.Size = new System.Drawing.Size(350, 370); // biraz yükselttik
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.StartPosition = FormStartPosition.CenterParent;
@@ -62,6 +64,7 @@ namespace PostgresDiff
             btnTestConnection.Click += BtnTestConnection_Click;
 
             btnSave = new Button() { Text = "Save", Dock = DockStyle.Fill };
+            btnSave.Enabled = connection == null ? false : true; // Disable Save initially
             btnSave.Click += BtnSave_Click;
 
             layout.Controls.Add(lblName, 0, 0);
@@ -107,7 +110,7 @@ namespace PostgresDiff
                 MessageBox.Show("Invalid port number!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
-
+            btnSave.Enabled = true;
             string connectionString = $"Host={txtHost.Text};Port={port};Database={txtDatabase.Text};Username={txtUsername.Text};Password={txtPassword.Text};Timeout=3;";
 
             using (var conn = new NpgsqlConnection(connectionString))
@@ -116,6 +119,40 @@ namespace PostgresDiff
                 {
                     conn.Open();
                     MessageBox.Show("Connection Successful!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                    using (var cmd = new NpgsqlCommand("SELECT version(), current_setting('log_directory'), current_setting('log_filename'), current_setting('data_directory');", conn))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            string versionStr = reader.GetString(0);
+                            string logDir = reader.GetString(1);
+                            string logFile = reader.GetString(2);
+                            string dataDir = reader.GetString(3);
+
+                            string os = versionStr.Contains("mingw") ? "Windows" : "Linux";
+
+                            // log_filename içindeki pattern'leri değiştir
+                            string logFileName = logFile;
+                            if (logFile.Contains("%"))
+                            {
+                                logFileName = logFile
+                                    .Replace("%Y", DateTime.Now.ToString("yyyy"))
+                                    .Replace("%m", DateTime.Now.ToString("MM"))
+                                    .Replace("%d", DateTime.Now.ToString("dd"))
+                                    .Replace("%H", DateTime.Now.ToString("HH"))
+                                    .Replace("%M", DateTime.Now.ToString("mm"))
+                                    .Replace("%S", DateTime.Now.ToString("ss"));
+                            }
+
+                            string fullPath = Path.Combine(
+                                Path.IsPathRooted(logDir) ? logDir : Path.Combine(dataDir, logDir),
+                                logFileName
+                            );
+
+                            txtLogFile.Text = fullPath;
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -152,14 +189,29 @@ namespace PostgresDiff
                 editingConnection.Password = txtPassword.Text;
                 editingConnection.Inactive = chkInactive.Checked;
                 editingConnection.LogFilePath = txtLogFile.Text;
+                // ✅ Preserve new fields if they were populated earlier (from Test Connection)
+                // (these are already set in isEditMode during test)
             }
             else
             {
-                var newConn = new ConnectionItem(txtName.Text, txtHost.Text, txtPort.Text, txtDatabase.Text,
-                    txtUsername.Text, txtPassword.Text, chkInactive.Checked)
+                var newConn = new ConnectionItem(
+                    txtName.Text,
+                    txtHost.Text,
+                    txtPort.Text,
+                    txtDatabase.Text,
+                    txtUsername.Text,
+                    txtPassword.Text,
+                    chkInactive.Checked
+                )
                 {
-                    LogFilePath = txtLogFile.Text
+                    LogFilePath = txtLogFile.Text,
+                    // 🔹 Optional: Extract log metadata from textbox if needed later
+                    OperatingSystem = "Unknown",  // you can improve this if needed
+                    LogDirectory = "",
+                    LogFilePattern = "",
+                    DataDirectory = ""
                 };
+
                 connectionList.AddConnection(newConn);
             }
 
