@@ -9,8 +9,8 @@ namespace PostgresDiff
 
     public class Searchlogentities : ISQLQuery
     {
-        public string sqlquerytext { get { return sqlq; } }
-        public static string sqlq = @"
+        public static string sqlquerytext { get { return sqlq; } }
+        private static string sqlq = @"
 CREATE OR REPLACE FUNCTION search_log_entries(
     search_time TIMESTAMP,
     search_text TEXT

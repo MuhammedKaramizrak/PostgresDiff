@@ -9,8 +9,8 @@ namespace PostgresDiff
 
     public class log_ddl_changes : ISQLQuery
     {
-        public string sqlquerytext { get { return sqlq; } }
-        public static string sqlq = @"
+        public static string sqlquerytext { get { return sqlq; } }
+        private static string sqlq = @"
 CREATE OR REPLACE FUNCTION log_ddl_changes()
 RETURNS event_trigger AS $$
 DECLARE 
@@ -23,6 +23,7 @@ shortobjectidentity text ;
   recexists int4;
 iteration int4;
 offvalue int4;
+ notify_payload text;
 BEGIN
   ---
      -- return ;
@@ -129,6 +130,22 @@ RAISE NOTICE 'select * from search_log_entries(''%'', ''%'');',
           generatedcommandrec.rsqltext
          );
   end if;
+ BEGIN
+    notify_payload := json_build_object(
+      'type', rec.object_type,
+      'name', rec.object_identity,
+      'sql', generatedcommandrec.sqltext
+    )::text;
+
+    IF length(notify_payload) < 7000 THEN
+      PERFORM pg_notify('pgddlchange', notify_payload);
+    ELSE
+      PERFORM pg_notify('pgddlchange', '##SHORT##' || rec.object_type || ':' || rec.objid);
+    END IF;
+  EXCEPTION
+    WHEN others THEN
+      RAISE NOTICE 'pg_notify gönderiminde hata: %', SQLERRM;
+  END;
 ----
   begin 
     ---

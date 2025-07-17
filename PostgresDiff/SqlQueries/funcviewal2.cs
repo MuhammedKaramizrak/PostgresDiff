@@ -12,8 +12,8 @@ namespace PostgresDiff
     }
     public class funcviewal2 : ISQLQuery
     {
-        public string sqlquerytext { get { return sqlq; } }
-        public static string sqlq = @"CREATE OR REPLACE FUNCTION public.funcviewgonder2(
+        public static string sqlquerytext { get { return sqlq; } }
+        private static string sqlq = @"CREATE OR REPLACE FUNCTION public.funcviewgonder2(
     she text,
     gobject_type text default null,
     gobjid oid default null
@@ -176,7 +176,7 @@ end if;
             VALUES ('TRIGGER', objectadi, l_rec.create_trigger_query || ';', l_rec.drop_trigger_query || ';');
         END LOOP;
     END IF;
-
+  END;
 $$;
 ";
     }

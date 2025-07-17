@@ -9,8 +9,8 @@ namespace PostgresDiff
 
     public class pg_get_coldef : ISQLQuery
     {
-        public string sqlquerytext { get { return sqlq; } }
-        public static string sqlq = @"-- DROP FUNCTION public.pg_get_coldef(text, text, text, bool);
+        public static string sqlquerytext { get { return sqlq; } }
+        private static string sqlq = @"-- DROP FUNCTION public.pg_get_coldef(text, text, text, bool);
 
 CREATE OR REPLACE FUNCTION public.pg_get_coldef(in_schema text, in_table text, in_column text, oldway boolean DEFAULT false)
  RETURNS text

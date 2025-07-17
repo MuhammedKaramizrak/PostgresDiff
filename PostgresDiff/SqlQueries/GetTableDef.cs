@@ -9,8 +9,8 @@ namespace PostgresDiff
 
     public class GetTableDef : ISQLQuery
     {
-        public string sqlquerytext { get { return sqlq; } }
-        public static string sqlq = @"
+        public static string sqlquerytext { get { return sqlq; } }
+        private static string sqlq = @"
 CREATE OR REPLACE FUNCTION public.pg_get_tabledeftum(in_schema character varying, _verbose boolean, VARIADIC arr tabledefs[] DEFAULT '{}'::tabledefs[] )
  RETURNS TABLE(in_table text, def text)
  LANGUAGE plpgsql

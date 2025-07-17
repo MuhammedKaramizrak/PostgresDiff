@@ -10,8 +10,8 @@ namespace PostgresDiff
 
     public class Eventtrigger : ISQLQuery
     {
-        public string sqlquerytext { get { return sqlq; } }
-        public static string sqlq = @"
+        public static string sqlquerytext { get { return sqlq; } }
+        private static string sqlq = @"
 ---DROP TABLE IF EXISTS ddl_posgresqllog ;
 
 ---drop sequence if exists ddl_posgresqllog_id_seq;

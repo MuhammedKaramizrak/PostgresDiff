@@ -10,7 +10,7 @@ namespace PostgresDiff
     public class FuncViewTableDefold : ISQLQuery
     {
         public string sqlquerytext { get { return sqlq; } }
-        public static string sqlq = @"
+        private static string sqlq = @"
 --drop function if exists public.funcviewTableDef(she text,   gobject_type text  default null,  gobjid oid default null, includedtables bool default false )
 
 CREATE OR REPLACE FUNCTION public.pg_get_tabledeftum(in_schema character varying, _verbose boolean, VARIADIC arr tabledefs[] DEFAULT '{}'::tabledefs[] )

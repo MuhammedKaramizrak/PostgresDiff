@@ -9,8 +9,8 @@ namespace PostgresDiff
 
     public class funcviewal2old : ISQLQuery
     {
-        public string sqlquerytext { get { return sqlq; } }
-        public static string sqlq = @"--drop FUNCTION public.funcviewal2 ( updatemi text, _host text, _port text, _database text, she text, _user text, _password text)
+        public static string sqlquerytext { get { return sqlq; } }
+        private static string sqlq = @"--drop FUNCTION public.funcviewal2 ( updatemi text, _host text, _port text, _database text, she text, _user text, _password text)
 -- Tuana hanım kesinlikle master a kurma
 
 --- Tuana Type  içinde baska Type olursa haber ver mudahale ederiz mami
