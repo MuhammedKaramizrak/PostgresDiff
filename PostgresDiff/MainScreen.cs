@@ -229,6 +229,10 @@ namespace PostgresDiff
             splitContainer.Panel2.Controls.Clear();
             SplitContainer? previousSplit = null;
 
+            // ✅ Base'leri inject et
+            for (int i = 0; i < projectData.Layers.Count - 1; i++)
+                new LayerBaseBuilder(projectData).InjectBaseFromPreviousLayer(i);
+
             foreach (var layer in projectData.Layers)
             {
                 bool isLastLayer = layer == projectData.Layers.Last();
@@ -283,14 +287,14 @@ namespace PostgresDiff
 
                 layerPanel.Controls.Add(lblLayerName, 0, 0);
                 layerPanel.SetColumnSpan(lblLayerName, 2);
-                
+
                 // ConnectionListView
                 var connView = new ConnectionListView(layer.Connections)
                 {
                     Dock = DockStyle.Fill,
                     MinimumSize = new Size(0, 100)
                 };
-           
+
                 layerPanel.Controls.Add(connView, 0, 1);
 
                 // DdlComparatorControl
@@ -343,7 +347,9 @@ namespace PostgresDiff
                     }
                 }
             }
+            
         }
+
 
 
 

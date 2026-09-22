@@ -27,10 +27,14 @@ namespace PostgresDiff
         public string LogFilePattern { get; set; }        // e.g. "postgresql-%Y-%m-%d_%H%M%S.log"
         public string DataDirectory { get; set; }         // full data directory
         public string ConnectionString => $"Host={Host};Port={Port};Database={Database};Username={Username};Password={Password};Timeout=5;";
-        public bool IsBase { get; set; } = false;
+        public bool  IsVirtual { get; set; } = false;
         public override string ToString()
         {
             return $"{Name} ({Host}:{Port})";
+        }
+        public ConnectionItem()
+        {
+
         }
         public ConnectionItem(string name, string host, string port, string database, string username, string password, bool inactive)
         {

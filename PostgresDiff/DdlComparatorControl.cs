@@ -532,12 +532,15 @@ namespace PostgresDiff
                         row.Cells.Add(new DataGridViewTextBoxCell { Value = dbObj.ObjectName });
 
                         int foundCount = 0;
+                        bool hasBase = false;
 
                         foreach (var conn in Connections)
                         {
                             var oneDb = dbObj.ListOneDataBase
                                 .FirstOrDefault(x => x.connectionItem.ConnectionString == conn.ConnectionString);
-
+                            var baseDb = dbObj.ListOneDataBase.FirstOrDefault(x => x.connectionItem == null); // 🔸 EKLENDİ
+                            if (baseDb != null)
+                                hasBase = true; // 🔸 EKLENDİ
                             var cbCell = new DataGridViewCheckBoxCell();
                             row.Cells.Add(cbCell);
                             cbCell.Value = false;
@@ -760,8 +763,9 @@ namespace PostgresDiff
 
         EqualBaseDif,              // DB içi fark yok ama base'e göre fark var
         AutoSelectBaseDif,         // Otomatik seçim ve base farkı var
-        RequireSelectBaseDif       // DB içi fark ve base farkı da var
-            
+        RequireSelectBaseDif ,      // DB içi fark ve base farkı da var
+            Empty,
+
     }
 
     public class DatabaseObject
@@ -785,33 +789,31 @@ namespace PostgresDiff
         public string BaseSqlText { get; set; } // Yeni eklenen alan
 
         public bool BaseDifference { get; set; } // Base ile fark var mı?
+        
+        public OneDataBase GetSelectedOneDatabase()
+        {
+            if (SelectedDatabase >= 0 && SelectedDatabase < ListOneDataBase.Count)
+                return ListOneDataBase[SelectedDatabase];
+            return null;
+        }
 
+        private bool SqlTextsAreEqual(string a, string b)
+        {
+            return (a ?? "").Trim() == (b ?? "").Trim();
+        }
         public Diffstatus DiffStatus
         {
             get
             {
                 if (!HasDifference && !BaseDifference)
-                {
-                    // Tam eşleşme ve base ile de fark yoksa
                     return AutoSelectted ? Diffstatus.AutoSelectBaseEqual : Diffstatus.EqualBaseEqual;
-                }
                 else if (HasDifference && !BaseDifference)
-                {
-                    // DB içi fark var ama base ile fark yok
                     return AutoSelectted ? Diffstatus.AutoSelectBaseDif : Diffstatus.RequireSelectBaseDif;
-                }
                 else if (!HasDifference && BaseDifference)
-                {
-                    // Base ile fark var ama DB içi fark yok
                     return AutoSelectted ? Diffstatus.AutoSelectBaseEqual : Diffstatus.EqualBaseDif;
-                }
                 else
-                {
-                    // Hem DB içi fark var hem de base ile fark var
                     return AutoSelectted ? Diffstatus.AutoSelectBaseDif : Diffstatus.RequireSelectBaseDif;
-                }
             }
-           
         }
     }
 

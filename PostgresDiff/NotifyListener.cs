@@ -65,10 +65,47 @@ namespace PostgresDiff
             }
 
         }
+        public static void PropagateBaseToAllNextLayers(ProjectData project, int startIndex, string objectType, string objectName)
+        {
+            string currentBase = null;
+
+            for (int i = startIndex; i < project.Layers.Count; i++)
+            {
+                var layer = project.Layers[i];
+                var obj = layer.DatabaseObjects.FirstOrDefault(o => o.ObjectType == objectType && o.ObjectName == objectName);
+                if (obj == null)
+                    continue;
+
+                var selected = obj.GetSelectedOneDatabase();
+                currentBase = selected?.SqlText ?? currentBase;
+
+                if (i + 1 < project.Layers.Count)
+                {
+                    var nextObj = project.Layers[i + 1].DatabaseObjects
+                        .FirstOrDefault(o => o.ObjectType == objectType && o.ObjectName == objectName);
+
+                    if (nextObj != null && currentBase != null)
+                    {
+                        nextObj.BaseSqlText = currentBase;
+                      //  nextObj.RecalculateDiffStatus(); // Varsa tetiklenir - hattaaaaaaaa çekirge RecalculateDiffStatus
+                    }
+                }
+            }
+        }
+        public void HandleNotify(ProjectData project, int changedLayerIndex, string objectType, string objectName) //// 0 referans çekirge
+        {
+            PropagateBaseToAllNextLayers(project, changedLayerIndex, objectType, objectName);
+        }
 
         private void OnNotification(object sender, NpgsqlNotificationEventArgs e)
         {
             NotifyReceived?.Invoke(this, e.Payload);
+            var payload = e.Payload;
+            var parts = payload.Split('|'); // örnek: "function|my_func"
+            if (parts.Length != 2) return;
+
+            string objectType = parts[0];
+            string objectName = parts[1];
         }
 
         public void Stop()
