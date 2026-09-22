@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.CompilerServices;
 using System.Security.Policy;
+using System.Text.Json.Serialization;
 using System.Windows.Forms;
 using Npgsql;
 using PostgresDiff;
@@ -26,6 +27,7 @@ namespace PostgresDiff
         public string LogDirectory { get; set; }          // e.g. "log"
         public string LogFilePattern { get; set; }        // e.g. "postgresql-%Y-%m-%d_%H%M%S.log"
         public string DataDirectory { get; set; }         // full data directory
+        [JsonIgnore]
         public string ConnectionString => $"Host={Host};Port={Port};Database={Database};Username={Username};Password={Password};Timeout=5;";
         public bool  IsVirtual { get; set; } = false;
         public override string ToString()

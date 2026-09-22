@@ -40,16 +40,7 @@ CREATE index if not exists idx_object_schema_name ON ddl_posgresqllog (object_sc
 
 
 
-DO $$ 
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_event_trigger WHERE evtname = 'track_ddl_changes'
-    ) THEN
-        CREATE EVENT TRIGGER track_ddl_changes
-        ON ddl_command_end
-        EXECUTE FUNCTION log_ddl_changes();
-    END IF;
-END $$;
+
 
 DO $$
 BEGIN
